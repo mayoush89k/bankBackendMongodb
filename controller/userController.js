@@ -81,7 +81,7 @@ export const deleteUser = async (req, res, next) => {
   }
 };
 
-// users/:userId?filter=name - route
+// users?filter=name - route
 // sort user by name
 export const filterNamesOfUsers = async (req, res, next) => {
   try {

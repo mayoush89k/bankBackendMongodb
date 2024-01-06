@@ -15,8 +15,13 @@ import {
 
 const router = Router();
 
-// account routes
-router.route("/").get(getAllAccounts);
+// accounts routes
+router.get("/", (req,res,next) => {
+    req.query["filter"] == "amount"
+      ? filterCashAmountBetweenUsers(req, res, next)
+      : getAllAccounts(req, res, next);
+})
+
 router
   .route("/user/:userId")
   .get(getAllAccountsOfUser)
@@ -26,17 +31,15 @@ router
 router.route("/:accountId").get(getAccountById).delete(deleteAccount);
 
 // transfer - params are account id
-router.route("/transfer/:from/:to/", transferBetweenAccounts);
+router.route("/transfer/:from/:to/").put(transferBetweenAccounts);
 
 // deposit cash
-router.route("/:userId/deposit/:accountId", depositCashToUser);
+router.route("/deposit/:accountId").put(depositCashToUser);
 
 // withdraw cash
-router.route("/:userId/withdraw/:accountId", withdrawCashFromUser);
+router.route("/withdraw/:accountId").put(withdrawCashFromUser);
 
 // update credit
-router.route("/:userId/credit/:accountId", updateCreditOnAccount);
-
-router.route("/:userId?filter=amount", filterCashAmountBetweenUsers);
+router.route("/credit/:accountId").put(updateCreditOnAccount);
 
 export default router;

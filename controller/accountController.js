@@ -35,11 +35,18 @@ export const getAllAccounts = async (req, res, next) => {
 export const createNewAccount = async (req, res, next) => {
   try {
     const account = await Account.create({
-      ...req.body,
+      cash: 0,
+      credit: 0,
       user: req.params.userId,
     });
-    const user = await User.findByIdAndUpdate(req.params.userId , {$push:{accounts: account._id}})
-    res.status(STATUS_CODES.CREATED).send(account);
+    const user = await User.findByIdAndUpdate(req.params.userId, {
+      $push: { accounts: account._id },
+    });
+    res
+      .status(STATUS_CODES.CREATED)
+      .send(
+        `Account of id = ${account._id} has been added to user ${user.username}`
+      );
   } catch (error) {
     next(error);
   }
@@ -83,7 +90,6 @@ export const deleteAccount = async (req, res, next) => {
     const user = await User.findByIdAndUpdate(account.user, {
       $pull: { accounts: account._id },
     });
-    console.log("user: ", user);
     res.send(account);
   } catch (error) {
     next(error);
@@ -94,42 +100,167 @@ export const deleteAccount = async (req, res, next) => {
 // "accounts/transfer/:from/:to/"
 export const transferBetweenAccounts = async (req, res, next) => {
   try {
+    const { from, to } = req.params;
+    const { amount } = req.body;
+
+    // find from and to account
+    let sender = await Account.findById(from);
+    let receiver = await Account.findById(to);
+
+    if (!sender) {
+      res.status(STATUS_CODES.NOT_FOUND);
+      throw new Error("Sender account does not exist");
+    }
+
+    if (!receiver) {
+      res.status(STATUS_CODES.NOT_FOUND);
+      throw new Error("Receiver account does not exist");
+    }
+    if (!amount) {
+      res.status(STATUS_CODES.BAD_REQUEST);
+      throw new Error("Amount is required");
+    }
+    if (amount <= 0) {
+      res.status(STATUS_CODES.FORBIDDEN);
+      throw new Error(
+        `Invalid amount ${amount}. It should be greater than zero`
+      );
+    }
+
+    // check if the sender has enough money
+    if (sender.credit < amount) {
+      res.status(STATUS_CODES.FORBIDDEN);
+      throw new Error("You don't have enough credit");
+    }
+
+    sender.credit -= amount;
+    sender = await Account.findByIdAndUpdate(from, {
+      $set: { credit: sender.credit },
+    });
+
+    receiver.credit += amount;
+    receiver = await Account.findByIdAndUpdate(to, {
+      $set: { credit: receiver.credit },
+    });
+
+    res.send(`transfer between ${from} - ${to} has been successful`);
   } catch (error) {
     next(error);
   }
 };
 
 // deposit cash
-// accounts/:userId/deposit/:accountId
+// accounts/deposit/:accountId
 export const depositCashToUser = async (req, res, next) => {
   try {
+    const { accountId } = req.params;
+    const { amount } = req.body;
+    let account = await Account.findById(accountId);
+
+    if (!account) {
+      res.status(STATUS_CODES.NOT_FOUND);
+      throw new Error("Account does not exist");
+    }
+    if (!amount) {
+      res.status(STATUS_CODES.BAD_REQUEST);
+      throw new Error("Amount is required");
+    }
+    if (amount <= 0) {
+      res.status(STATUS_CODES.FORBIDDEN);
+      throw new Error(
+        `Invalid amount ${amount}. It should be greater than zero`
+      );
+    }
+
+    account.cash += amount;
+    account = await Account.findByIdAndUpdate(accountId, {
+      $set: { cash: account.cash },
+    });
+
+    res.send(`Success deposit ${amount} to ${accountId}`);
   } catch (error) {
     next(error);
   }
 };
 
 // withdraw cash
-// accounts/:userId/withdraw/:accountId
+// accounts/withdraw/:accountId
 export const withdrawCashFromUser = async (req, res, next) => {
   try {
+    const { accountId } = req.params;
+    const { amount } = req.body;
+    let account = await Account.findById(accountId);
+
+    if (!account) {
+      res.status(STATUS_CODES.NOT_FOUND);
+      throw new Error("Account does not exist");
+    }
+    if (!amount) {
+      res.status(STATUS_CODES.BAD_REQUEST);
+      throw new Error("Amount is required");
+    }
+    if (amount <= 0) {
+      res.status(STATUS_CODES.FORBIDDEN);
+      throw new Error(
+        `Invalid amount ${amount}. It should be greater than zero`
+      );
+    }
+
+    if (account.cash < amount) {
+      res.status(STATUS_CODES.FORBIDDEN);
+      throw new Error("You don't have enough cash");
+    }
+
+    account.cash -= amount;
+    account = await Account.findByIdAndUpdate(accountId, {
+      $set: { cash: account.cash },
+    });
+    res.send(`Success withdraw ${amount} from ${accountId}`);
   } catch (error) {
     next(error);
   }
 };
 
 // update credit
-// accounts/:userId/credit/:accountId
+// accounts/credit/:accountId
 export const updateCreditOnAccount = async (req, res, next) => {
   try {
+    const { accountId } = req.params;
+    const { amount } = req.body;
+    let account = await Account.findById(accountId);
+
+    if (!account) {
+      res.status(STATUS_CODES.NOT_FOUND);
+      throw new Error("Account does not exist");
+    }
+    if (!amount) {
+      res.status(STATUS_CODES.BAD_REQUEST);
+      throw new Error("Amount is required");
+    }
+    if (amount <= 0) {
+      res.status(STATUS_CODES.FORBIDDEN);
+      throw new Error(
+        `Invalid amount ${amount}. It should be greater than zero`
+      );
+    }
+
+    account.credit += amount;
+    account = await Account.findByIdAndUpdate(accountId, {
+      $set: { credit: account.credit },
+    });
+    res.send(`Success updating ${amount} to credit - ${accountId}`);
   } catch (error) {
     next(error);
   }
 };
 
 // sort users by account ballance amount
-// accounts/:userId?filter=amount
+// accounts/admin?filter=amount
 export const filterCashAmountBetweenUsers = async (req, res, next) => {
   try {
+    const accounts = await Account.find({}).sort({ cash: 1, credit: 1 });
+    console.log(accounts);
+    res.send(accounts);
   } catch (error) {
     next(error);
   }
